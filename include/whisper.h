@@ -350,6 +350,18 @@ extern "C" {
                      whisper_token * tokens,
                                int   n_max_tokens);
 
+    
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Expose for embeddings
+
+    WHISPER_API int whisper_encoder_embeddings_count(struct whisper_context * ctx);
+
+    WHISPER_API int whisper_copy_encoder_embeddings(
+        struct whisper_context * ctx,
+        float * output,
+        int output_count);
+
     // Return the number of tokens in the provided text
     // Equivalent to: -whisper_tokenize(ctx, text, NULL, 0)
     int whisper_token_count(struct whisper_context * ctx, const char * text);
