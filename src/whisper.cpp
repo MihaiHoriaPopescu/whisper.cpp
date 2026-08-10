@@ -3956,6 +3956,72 @@ int whisper_encode(struct whisper_context * ctx, int offset, int n_threads) {
     return 0;
 }
 
+
+
+int whisper_encoder_embeddings_count(struct whisper_context * ctx)
+{
+    if (!ctx || !ctx->state || !ctx->state->embd_enc)
+    {
+        return 0;
+    }
+
+    return static_cast<int>(ggml_nelements(ctx->state->embd_enc));
+}
+
+int whisper_copy_encoder_embeddings(
+    struct whisper_context * ctx,
+    float * output,
+    int output_count)
+{
+    if (!ctx || !ctx->state || !ctx->state->embd_enc)
+    {
+        return -1;
+    }
+
+    ggml_tensor * tensor = ctx->state->embd_enc;
+
+    const int element_count =
+        static_cast<int>(ggml_nelements(tensor));
+
+    if (!output || output_count < element_count)
+    {
+        return -2;
+    }
+
+    if (tensor->type == GGML_TYPE_F32)
+    {
+        ggml_backend_tensor_get(
+            tensor,
+            output,
+            0,
+            static_cast<size_t>(element_count) * sizeof(float)
+        );
+
+        return element_count;
+    }
+
+    if (tensor->type == GGML_TYPE_F16)
+    {
+        std::vector<ggml_fp16_t> temp(element_count);
+
+        ggml_backend_tensor_get(
+            tensor,
+            temp.data(),
+            0,
+            static_cast<size_t>(element_count) * sizeof(ggml_fp16_t)
+        );
+
+        for (int i = 0; i < element_count; ++i)
+        {
+            output[i] = ggml_fp16_to_fp32(temp[i]);
+        }
+
+        return element_count;
+    }
+
+    return -3;
+}
+
 int whisper_decode_with_state(struct whisper_context * ctx, struct whisper_state * state, const whisper_token * tokens, int n_tokens, int n_past, int n_threads) {
     whisper_batch_prep_legacy(state->batch, tokens, n_tokens, n_past, 0);
 
@@ -9189,70 +9255,6 @@ static void whisper_log_internal(ggml_log_level level, const char * format, ...)
         delete[] buffer2;
     }
     va_end(args);
-}
-
-int whisper_encoder_embeddings_count(struct whisper_context * ctx)
-{
-    if (!ctx || !ctx->state || !ctx->state->embd_enc)
-    {
-        return 0;
-    }
-
-    return static_cast<int>(ggml_nelements(ctx->state->embd_enc));
-}
-
-int whisper_copy_encoder_embeddings(
-    struct whisper_context * ctx,
-    float * output,
-    int output_count)
-{
-    if (!ctx || !ctx->state || !ctx->state->embd_enc)
-    {
-        return -1;
-    }
-
-    ggml_tensor * tensor = ctx->state->embd_enc;
-
-    const int element_count =
-        static_cast<int>(ggml_nelements(tensor));
-
-    if (!output || output_count < element_count)
-    {
-        return -2;
-    }
-
-    if (tensor->type == GGML_TYPE_F32)
-    {
-        ggml_backend_tensor_get(
-            tensor,
-            output,
-            0,
-            static_cast<size_t>(element_count) * sizeof(float)
-        );
-
-        return element_count;
-    }
-
-    if (tensor->type == GGML_TYPE_F16)
-    {
-        std::vector<ggml_fp16_t> temp(element_count);
-
-        ggml_backend_tensor_get(
-            tensor,
-            temp.data(),
-            0,
-            static_cast<size_t>(element_count) * sizeof(ggml_fp16_t)
-        );
-
-        for (int i = 0; i < element_count; ++i)
-        {
-            output[i] = ggml_fp16_to_fp32(temp[i]);
-        }
-
-        return element_count;
-    }
-
-    return -3;
 }
 
 static void whisper_log_callback_default(ggml_log_level level, const char * text, void * user_data) {
